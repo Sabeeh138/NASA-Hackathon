@@ -11,3 +11,5 @@
 <img width="1000" height="600" alt="soil_moisture_boxplot" src="https://github.com/user-attachments/assets/b04aa612-470e-4fca-814a-0bda68c6f85b" />
 
 <img width="1200" height="600" alt="soil_moisture_by_week" src="https://github.com/user-attachments/assets/e216c424-7876-4b5c-9ba7-648b75455b96" />
+
+<img width="1200" height="600" alt="yield_comparison_bar" src="https://github.com/user-attachments/assets/58b7752d-a7af-4037-aff2-e1951a0c3fa6" />

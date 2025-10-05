@@ -1,58 +1,57 @@
 # 🌱 Environmental Data Analysis and Crop Suitability Prediction
 
-This project leverages **time-series environmental data (Precipitation, Soil Moisture, and Temperature)** from **2018–2020** to predict the **daily suitability of environmental conditions** for general crop growth using **machine learning**.
+This project uses **time-series environmental data** (Precipitation, Soil Moisture, and Temperatures) from **2018 to 2020** to build a **classification model** that predicts the **daily suitability of the environment for general crop growth**.
 
 ---
 
 ## 📊 1. Data Sources and Ingestion
 
-Four distinct daily time-series datasets were combined and cleaned to form the analysis base.
+Four distinct daily time-series datasets were loaded and merged:
 
-| Dataset | Description | Unit | Source File |
-|----------|--------------|------|--------------|
-| Precipitation_Rate_mm_hr | Daily precipitation rate | mm/hr | `Precipitation.csv` |
-| Soil_Moisture_m3_m3 | Soil moisture content | m³/m³ | `SoilMoistures.csv` |
-| Soil_Temperature_K | Soil temperature | Kelvin (K) | `SoilTemperature.csv` |
-| Surface_Temperature_K | Surface temperature | Kelvin (K) | `SurfaceTemp.csv` |
+- `Precipitation.csv`  
+- `SoilMoistures.csv`  
+- `SoilTemperature.csv`  
+- `SurfaceTemp.csv`  
 
-### 🧹 Data Cleaning
-- Skipped initial **8 metadata rows** in each CSV file.  
-- Parsed the **Date** column and set it as the index.  
-- Merged all datasets into a single DataFrame on their common **Date index**.
+The data was cleaned by skipping the initial **8 metadata rows** and merging the resulting DataFrames on their common **Date index**.
+
+| Variable Name | Unit | Source File |
+|----------------|------|--------------|
+| Precipitation_Rate_mm_hr | mm/hr | Precipitation.csv |
+| Soil_Moisture_m3_m3 | m³/m³ | SoilMoistures.csv |
+| Soil_Temperature_K | K | SoilTemperature.csv |
+| Surface_Temperature_K | K | SurfaceTemp.csv |
 
 ---
 
 ## 🌾 2. Target Variable Definition — *Crop Growth Suitability*
 
-Since the original dataset did not include crop yield or growth labels, a **proxy binary target variable** (`Crop_Growth_Suitability`) was engineered using agricultural thresholds.
+Since the original data did not contain a target variable for crop yield or growth, a **proxy binary target**, `Crop_Growth_Suitability`, was engineered based on generalized agricultural principles.
+
+A day was classified as **Suitable (1)** if **all three** conditions below were met; otherwise, it was classified as **Not Suitable (0)**.
 
 | Condition | Threshold | Rationale |
 |------------|------------|------------|
 | **Soil Moisture** | > 0.10 m³/m³ | Ensures adequate water availability, avoiding drought stress. |
-| **Soil Temperature** | > 15°C | Represents the minimum temperature required for active root growth and nutrient uptake. |
-| **Surface Temperature** | > 15°C | Represents the minimum temperature for above-ground plant metabolism and growth. |
-
-🔹 If **all three** conditions were satisfied → `Crop_Growth_Suitability = 1 (Suitable)`  
-🔹 Otherwise → `Crop_Growth_Suitability = 0 (Not Suitable)`
+| **Soil Temperature** | > 15°C (≈288.15 K) | Minimum temperature for active root growth and nutrient uptake. |
+| **Surface Temperature** | > 15°C (≈288.15 K) | Minimum temperature for above-ground plant metabolism and growth. |
 
 ---
 
 ## ⚙️ 3. Feature Engineering
 
-To help the model learn temporal trends and seasonal effects, several additional features were generated.
+To capture **time-series dynamics** and **seasonality**, several features were added to the dataset.
 
-### 🕒 Time-Based Features
-- **Month** — Extracted from the date to capture seasonal variations.
-- **DayOfYear** — Captures cyclical changes within the year.
+### ⏳ Time-Based Features
+- `Month`
+- `Dayofyear`
 
 ### 🔁 Lagged Features
-- Added **previous day (lag-1)** values of key environmental features:
-  - `Precipitation_Rate_mm_hr_lag1`
-  - `Soil_Moisture_m3_m3_lag1`
-  - `Soil_Temperature_K_lag1`
-  - `Surface_Temperature_K_lag1`
-
-This allows the model to use yesterday’s environmental conditions to predict today’s crop suitability.
+The **previous day’s values (Lag = 1)** for each primary environmental feature were included, allowing the model to predict today’s suitability using yesterday’s conditions:
+- `Precipitation_Rate_mm_hr_lag1`
+- `Soil_Moisture_m3_m3_lag1`
+- `Soil_Temperature_K_lag1`
+- `Surface_Temperature_K_lag1`
 
 ---
 
@@ -61,50 +60,64 @@ This allows the model to use yesterday’s environmental conditions to predict t
 ### 🧠 Model Used
 | Parameter | Description |
 |------------|-------------|
-| **Algorithm** | Random Forest Classifier |
-| **Task Type** | Binary Classification (Suitable = 1, Not Suitable = 0) |
-| **Purpose** | Predicting daily environmental suitability for crop growth |
+| **Model** | Random Forest Classifier |
+| **Purpose** | Classification (predicting 0 or 1) |
+| **Parameters** | `n_estimators=200`, `max_depth=10`, `class_weight='balanced'` |
 
-### 🧪 Model Parameters
-- `n_estimators = 100`  
-- `random_state = 42`  
-- `max_depth = None` (allowing trees to expand fully for higher accuracy)
-
----
-
-## 📈 5. Evaluation Methodology
-
+### 🧪 Evaluation Methodology
 | Aspect | Description |
 |---------|--------------|
-| **Data Split** | 80% training (earlier data) / 20% testing (later data) |
-| **Validation Type** | Chronological split to simulate future prediction |
+| **Data Split** | Chronological — first 80% for training, last 20% for testing |
+| **Reasoning** | Ensures the model is evaluated on *future (unseen)* data — essential for time-series validation |
 | **Metrics Used** | Accuracy, Precision, Recall, F1-Score, Confusion Matrix |
-| **Interpretation** | Model performance was robust, showing strong accuracy and consistency across metrics. |
-
-### 🔍 Insights
-- **Surface Temperature** and **Soil Temperature** emerged as the **most important predictors**.  
-- The model effectively captures **daily environmental variability** influencing crop growth.
+| **Result Interpretation** | The model achieved high accuracy in predicting the proxy target. Feature Importance analysis revealed that **Surface Temperature** and **Soil Temperature** were the most influential factors. |
 
 ---
 
-## 📊 6. Visualizations (Optional)
-Depending on your implementation, the following plots can be generated:
-- **Feature Importance Plot** — shows which environmental factors influence suitability most.  
-- **Confusion Matrix Heatmap** — visualizes model accuracy and false predictions.  
-- **Time-Series Plots** — track environmental variable trends across seasons.
+## 🧩 5. Hypothetical Scenario Testing
+
+To demonstrate the model's interpretability and decision-making process, **three custom fictional scenarios** were tested.
+
+### 🧱 Scenario Setup
+- **Base Conditions:** Average "yesterday" conditions and neutral time features (e.g., `Month=6`, `Dayofyear=160`).
+- **Goal:** Observe model response to different environmental combinations.
+
+| Scenario Name | Key Condition Tested (Today's Values) | Expected Outcome | Explanation |
+|----------------|--------------------------------------|------------------|--------------|
+| **Ideal Growth** | High temperatures (>30°C), High moisture (~0.35 m³/m³) | Suitable (1) | Meets all thresholds |
+| **Marginal Moisture** | Warm temps (~21°C), Low moisture (~0.09 m³/m³) | Not Suitable (0) | Fails moisture threshold |
+| **Cold Snap** | Low temps (~5°C), Adequate moisture (~0.18 m³/m³) | Not Suitable (0) | Fails temperature thresholds |
 
 ---
 
-## 🧩 7. Libraries Used
-| Library | Purpose |
-|----------|----------|
-| `pandas` | Data loading and manipulation |
-| `numpy` | Numerical operations |
-| `matplotlib` / `seaborn` | Visualization |
-| `scikit-learn` | Machine learning model and evaluation |
+## 📈 6. Visualization of Scenario Predictions
+
+The model’s output probabilities were visualized in a **bar chart**, showing the predicted **likelihood of suitability** for each scenario.
+
+✅ **Result:**  
+The visualization confirmed that the model correctly follows the agricultural logic — assigning:
+- High suitability to **Ideal Growth**
+- Low suitability to **Marginal Moisture** and **Cold Snap**
 
 ---
 
 ## 🧠 Summary
 
-**Workflow Overview:**
+This project successfully:
+- Integrated multiple environmental time-series datasets  
+- Engineered biologically meaningful features  
+- Built and evaluated a **Random Forest classification model**  
+- Demonstrated logical interpretability through custom scenario testing  
+
+---
+
+## 🧰 Technologies Used
+
+| Library | Purpose |
+|----------|----------|
+| `pandas`, `numpy` | Data manipulation and computation |
+| `matplotlib`, `seaborn` | Data visualization |
+| `scikit-learn` | Model training and evaluation |
+
+---
+

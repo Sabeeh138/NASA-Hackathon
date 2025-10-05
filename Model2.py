@@ -1,4 +1,3 @@
-# this is for the Giovanni datasets
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -104,6 +103,7 @@ def prepare_data(df):
 def train_and_evaluate_model(df):
     """
     Splits data, trains a Random Forest Classifier, and reports results.
+    Returns the trained model and the feature list.
     """
     print("\n--- Training Machine Learning Model ---")
 
@@ -111,9 +111,10 @@ def train_and_evaluate_model(df):
     current_features = ['Soil_Temperature_K', 'Surface_Temperature_K', 'Soil_Moisture_m3_m3', 'Precipitation_Rate_mm_hr']
     lagged_features = [col for col in df.columns if '_Lag_1' in col]
     time_features = ['Month', 'Dayofyear']
+    all_features = current_features + lagged_features + time_features
 
     # We use all features to predict suitability
-    X = df[current_features + lagged_features + time_features]
+    X = df[all_features]
     y = df['Crop_Growth_Suitability']
 
     # Split data chronologically (better for time series than random split)
@@ -149,9 +150,9 @@ def train_and_evaluate_model(df):
     print("\nConfusion Matrix (Rows=Actual, Columns=Predicted):\n", conf_matrix)
     print("\nTop 10 Feature Importance:\n", feature_importance.head(10))
 
-    return df, y_test, y_pred
+    return model, all_features, df, y_test, y_pred
 
-# --- 4. Visualization ---
+# --- 4. Visualization of Historical Performance ---
 
 def plot_suitability(df, y_test, y_pred):
     """
@@ -193,6 +194,93 @@ def plot_suitability(df, y_test, y_pred):
     plt.tight_layout()
     plt.show()
 
+# --- 5. Hypothetical Scenario Prediction and Visualization (New Function) ---
+
+def predict_and_plot_hypothetical_scenarios(model, features):
+    """
+    Creates hypothetical scenarios, predicts suitability, and visualizes results.
+    """
+    print("\n--- Predicting Hypothetical Scenarios ---")
+
+    # The model uses today's data (Temp, Moisture) + Yesterday's data (Lag_1) + Time (Month, Dayofyear).
+    # For a simple test, we will assume "Yesterday's" conditions (Lag_1) are set to an average value from the dataset,
+    # and focus the test on TODAY's conditions.
+
+    # Base values (representing a non-extreme day in June)
+    base_values = {
+        'Month': 6,
+        'Dayofyear': 160, # Early June
+        'Precipitation_Rate_mm_hr_Lag_1': 0.05,
+        'Soil_Moisture_m3_m3_Lag_1': 0.15,
+        'Soil_Temperature_K_Lag_1': 295.0,
+        'Surface_Temperature_K_Lag_1': 298.0,
+    }
+
+    # Define three scenarios focusing on TODAY's environmental conditions
+    scenarios = {
+        # Scenario 1: Ideal Conditions (All thresholds easily met)
+        'Ideal Growth': {
+            'Soil_Temperature_K': 305.0,   # 31.85 C
+            'Surface_Temperature_K': 308.0,  # 34.85 C
+            'Soil_Moisture_m3_m3': 0.35,
+            'Precipitation_Rate_mm_hr': 0.1,
+        },
+        # Scenario 2: Marginal Conditions (Soil Moisture just below threshold)
+        'Marginal Moisture': {
+            'Soil_Temperature_K': 295.0,  # 21.85 C
+            'Surface_Temperature_K': 298.0,  # 24.85 C
+            'Soil_Moisture_m3_m3': 0.09,    # Below 0.10 threshold
+            'Precipitation_Rate_mm_hr': 0.02,
+        },
+        # Scenario 3: Poor Conditions (Temperature too low, e.g., in winter)
+        'Cold Snap': {
+            'Soil_Temperature_K': 280.0,   # 6.85 C (Below 15 C threshold)
+            'Surface_Temperature_K': 275.0,  # 1.85 C (Below 15 C threshold)
+            'Soil_Moisture_m3_m3': 0.18,
+            'Precipitation_Rate_mm_hr': 0.01,
+        }
+    }
+
+    # Create the DataFrame for prediction
+    test_data = []
+    for name, current_data in scenarios.items():
+        # Combine base values (lagged/time) with current values
+        row = {**base_values, **current_data}
+        test_data.append(row)
+
+    X_hypothetical = pd.DataFrame(test_data, index=scenarios.keys())
+    # Re-order columns to match the training data feature order
+    X_hypothetical = X_hypothetical[features]
+
+    # Predict the suitability
+    predictions = model.predict(X_hypothetical)
+    probabilities = model.predict_proba(X_hypothetical)
+    results_df = X_hypothetical.copy()
+    results_df['Predicted_Suitability'] = predictions
+    results_df['Prob_Suitable (1)'] = probabilities[:, 1]
+    results_df['Prob_Not_Suitable (0)'] = probabilities[:, 0]
+
+    print("\nPrediction Results:")
+    print(results_df[['Soil_Temperature_K', 'Soil_Moisture_m3_m3', 'Predicted_Suitability', 'Prob_Suitable (1)']])
+
+    # Visualization
+    plt.figure(figsize=(10, 5))
+    bar_colors = np.where(predictions == 1, 'seagreen', 'firebrick')
+    plt.bar(results_df.index, results_df['Prob_Suitable (1)'], color=bar_colors)
+
+    for i, pred in enumerate(predictions):
+        label = 'Suitable (1)' if pred == 1 else 'Not Suitable (0)'
+        plt.text(i, results_df['Prob_Suitable (1)'].iloc[i] + 0.03,
+                 f'Prediction: {label}', ha='center', color='black', fontsize=10, fontweight='bold')
+
+    plt.ylim(0, 1.1)
+    plt.title('Model Prediction for Hypothetical Environmental Scenarios')
+    plt.ylabel('Predicted Probability of Suitability (1)')
+    plt.xlabel('Scenario')
+    plt.grid(axis='y', linestyle='--', alpha=0.6)
+    plt.tight_layout()
+    plt.show()
+
 # --- Main Execution ---
 
 if __name__ == "__main__":
@@ -206,7 +294,10 @@ if __name__ == "__main__":
         processed_data = prepare_data(merged_data)
 
         # 3. Model Training and Evaluation
-        final_df, y_test, y_pred = train_and_evaluate_model(processed_data)
+        model, all_features, final_df, y_test, y_pred = train_and_evaluate_model(processed_data)
 
-        # 4. Visualization
+        # 4. Visualization of Historical Performance (Original Plot)
         plot_suitability(final_df, y_test, y_pred)
+
+        # 5. Visualization of Hypothetical Scenarios (New Plot)
+        predict_and_plot_hypothetical_scenarios(model, all_features)
